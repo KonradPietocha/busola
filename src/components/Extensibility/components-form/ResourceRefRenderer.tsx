@@ -15,6 +15,7 @@ import { useJsonata } from '../hooks/useJsonata';
 import { useUrl } from 'hooks/useUrl';
 import { usePermittedUrl } from 'hooks/usePermittedUrl';
 import { StoreKeys, StoreSchemaType } from '@ui-schema/ui-schema';
+import { Resource } from '../contexts/DataSources';
 
 type ResourceRefRenderProps = {
   onChange: (params: SchemaOnChangeParams) => void;
@@ -24,10 +25,10 @@ type ResourceRefRenderProps = {
   resource: any;
   widgets: any;
   required: boolean;
-  originalResource: any;
+  originalResource: Resource;
   nestingLevel: number;
-  singleRootResource: any;
-  embedResource: any;
+  singleRootResource?: Resource;
+  embedResource?: Resource;
 } & Record<string, any>;
 
 export function ResourceRefRender({

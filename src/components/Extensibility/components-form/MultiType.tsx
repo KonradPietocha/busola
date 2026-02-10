@@ -13,7 +13,7 @@ type MultiTypeProps = {
   onChange: (params: SchemaOnChangeParams) => void;
   schema: StoreSchemaType;
   storeKeys: StoreKeys;
-  resource: any;
+  resource: Record<string, any>;
   parentSchema?: StoreSchemaType;
 } & Record<string, any>;
 

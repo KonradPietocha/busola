@@ -12,7 +12,7 @@ type MultiCheckboxProps = {
   schema: StoreSchemaType;
   storeKeys: StoreKeys;
   required?: boolean;
-  resource?: any;
+  resource?: Record<string, any>;
   compact?: boolean;
   placeholder?: string;
 };
@@ -21,7 +21,7 @@ type OptionType =
   | string
   | { key?: string; name?: string; description?: string };
 
-function getValue(storeKeys: StoreKeys, resource: any) {
+function getValue(storeKeys: StoreKeys, resource?: Record<string, any>) {
   let value = resource;
   const keys = storeKeys.toJS();
   keys.forEach((key) => (value = value?.[key]));
