@@ -1,30 +1,24 @@
 import {
+  createContext,
   lazy,
   Fragment,
-  createContext,
   Suspense,
   useEffect,
   useState,
 } from 'react';
-import PropTypes from 'prop-types';
 import pluralize from 'pluralize';
 import { useTranslation } from 'react-i18next';
 import { Title, ToolbarButton } from '@ui5/webcomponents-react';
-
-import { ResourceNotFound } from 'shared/components/ResourceNotFound/ResourceNotFound';
 import { ErrorBoundary } from 'shared/components/ErrorBoundary/ErrorBoundary';
-import { useGet } from 'shared/hooks/BackendAPI/useGet';
-import { getErrorMessage, prettifyNameSingular } from 'shared/utils/helpers';
+import { prettifyNameSingular } from 'shared/utils/helpers';
 import { Labels } from 'shared/components/Labels/Labels';
 import { DynamicPageComponent } from 'shared/components/DynamicPageComponent/DynamicPageComponent';
 import { Spinner } from 'shared/components/Spinner/Spinner';
-import CustomPropTypes from 'shared/typechecking/CustomPropTypes';
 import { useWindowTitle } from 'shared/hooks/useWindowTitle';
 import { useProtectedResources } from 'shared/hooks/useProtectedResources';
 import { useDeleteResource } from 'shared/hooks/useDeleteResource';
 import { ResourceCreate } from 'shared/components/ResourceCreate/ResourceCreate';
 import { useVersionWarning } from 'hooks/useVersionWarning';
-
 import YamlUploadDialog from 'resources/Namespaces/YamlUpload/YamlUploadDialog';
 import { createPortal } from 'react-dom';
 import ResourceDetailsCard from './ResourceDetailsCard';
@@ -36,10 +30,15 @@ import { HintButton } from '../HintButton/HintButton';
 import { useAtomValue } from 'jotai';
 import { columnLayoutAtom } from 'state/columnLayoutAtom';
 import BannerCarousel from 'shared/components/FeatureCard/BannerCarousel';
-import { ResourceCustomStatusColumns } from './ResourceCustomStatusColumns';
-import { isEmpty } from 'lodash';
+import {
+  CustomColumn,
+  ResourceCustomStatusColumns,
+} from './ResourceCustomStatusColumns';
 import { ProtectedResourceWarning } from '../ProtectedResourcesButton';
 import { DeleteResourceModal } from '../DeleteResourceModal/DeleteResourceModal';
+import { ResourceDetailsProps } from './ResourceDetails';
+import { K8sResource } from 'types';
+import { Resource } from 'components/Extensibility/contexts/DataSources';
 
 // This component is loaded after the page mounts.
 // Don't try to load it on scroll. It was tested.
@@ -50,110 +49,14 @@ const Injections = lazy(
   () => import('../../../components/Extensibility/ExtensibilityInjections'),
 );
 
-ResourceDetails.propTypes = {
-  customColumns: CustomPropTypes.customColumnsType,
-  children: PropTypes.node,
-  customComponents: PropTypes.arrayOf(PropTypes.func),
-  description: PropTypes.object,
-  resourceUrl: PropTypes.string,
-  resourceType: PropTypes.string.isRequired,
-  resourceName: PropTypes.string,
-  resourceTitle: PropTypes.string,
-  namespace: PropTypes.string,
-  headerActions: PropTypes.node,
-  resourceHeaderActions: PropTypes.arrayOf(PropTypes.func),
-  readOnly: PropTypes.bool,
-  editActionLabel: PropTypes.string,
-  windowTitle: PropTypes.string,
-  resourceGraphConfig: PropTypes.object,
-  resourceSchema: PropTypes.object,
-  disableEdit: PropTypes.oneOfType([PropTypes.bool, PropTypes.func]),
-  disableDelete: PropTypes.bool,
-  showYamlTab: PropTypes.bool,
-  layoutCloseCreateUrl: PropTypes.string,
-  layoutNumber: PropTypes.string,
-  customHealthCards: PropTypes.arrayOf(PropTypes.func),
-  showHealthCardsTitle: PropTypes.bool,
-  isModule: PropTypes.bool,
-  isEntireListProtected: PropTypes.bool,
-};
-
-export function ResourceDetails(props) {
-  if (!props.resourceUrl) {
-    return <></>; // wait for the context update
-  } else {
-    return <ResourceDetailsRenderer {...props} />;
-  }
-}
-
 export const ResourceDetailContext = createContext(false);
 
-function ResourceDetailsRenderer(props) {
-  const {
-    loading = true,
-    error,
-    data: resource,
-  } = useGet(props.resourceUrl, {
-    pollingInterval: 3000,
-    errorTolerancy: props.isModule ? 0 : undefined,
-  });
-  const [disableEditState, setDisableEditState] = useState(false);
+type ResourceProps = Omit<ResourceDetailsProps, 'disableEdit'> & {
+  resource: K8sResource & Resource;
+  disableEdit?: boolean;
+};
 
-  useEffect(() => {
-    const getDisableEdit = async () => {
-      if (
-        typeof props.disableEdit === 'function' ||
-        typeof props.disableEdit?.then === 'function'
-      ) {
-        const isDisabled = await props.disableEdit(resource);
-        setDisableEditState(isDisabled);
-      } else {
-        setDisableEditState(props.disableEdit);
-      }
-    };
-    getDisableEdit();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(resource), props.disableEdit]);
-
-  if (loading) return <Spinner />;
-  if (error && isEmpty(resource)) {
-    if (error.code === 404) {
-      return (
-        <ResourceNotFound
-          resource={prettifyNameSingular(
-            props.resourceTitle,
-            props.resourceType,
-          )}
-          layoutCloseUrl={props.layoutCloseCreateUrl}
-          layoutNumber={props.layoutNumber ?? 'midColumn'}
-        />
-      );
-    }
-    return (
-      <ResourceNotFound
-        resource={prettifyNameSingular(props.resourceTitle, props.resourceType)}
-        customMessage={getErrorMessage(error)}
-        layoutCloseUrl={props.layoutCloseCreateUrl}
-        layoutNumber={props.layoutNumber ?? 'midColumn'}
-      />
-    );
-  }
-
-  return (
-    <>
-      {resource && (
-        <Resource
-          {...props}
-          key={resource.metadata.name}
-          resource={resource}
-          disableEdit={disableEditState}
-        />
-      )}
-    </>
-  );
-}
-
-function Resource({
+export function ResourceComponent({
   customTitle,
   disableResourceDetailsCard = false,
   hideLabels = false,
@@ -174,7 +77,7 @@ function Resource({
   resource,
   resourceHeaderActions = [],
   resourceType,
-  resourceUrl,
+  resourceUrl = '',
   title,
   windowTitle,
   resourceTitle,
@@ -193,7 +96,7 @@ function Resource({
   className,
   headerDescription,
   isEntireListProtected = false,
-}) {
+}: ResourceProps) {
   useVersionWarning({ resourceUrl, resourceType });
   const { t } = useTranslation();
   const prettifiedResourceKind = prettifyNameSingular(
@@ -211,6 +114,7 @@ function Resource({
     handleResourceDelete,
     performDelete,
     performCancel,
+    /*@ts-expect-error Type mismatch between js and ts*/
   } = useDeleteResource({
     resourceTitle,
     resourceType,
@@ -224,17 +128,19 @@ function Resource({
     isProtectedResource(resource) || isEntireListProtected;
   // Use isProtected for blocking modifications (considers user setting)
   const protectedResource = isProtected(resource) || isEntireListProtected;
-  const [filteredStatusColumns, setFilteredStatusColumns] = useState([]);
-  const [filteredStatusColumnsLong, setFilteredStatusColumnsLong] = useState(
-    [],
-  );
+  const [filteredStatusColumns, setFilteredStatusColumns] = useState<
+    CustomColumn[]
+  >([]);
+  const [filteredStatusColumnsLong, setFilteredStatusColumnsLong] = useState<
+    CustomColumn[]
+  >([]);
   const [filteredConditionsComponents, setFilteredConditionsComponents] =
-    useState([]);
-  const [filteredDetailsCardColumns, setFilteredDetailsCardColumns] = useState(
-    [],
-  );
+    useState<CustomColumn[]>([]);
+  const [filteredDetailsCardColumns, setFilteredDetailsCardColumns] = useState<
+    CustomColumn[]
+  >([]);
 
-  const filterColumns = async (col) => {
+  const filterColumns = async (col: CustomColumn) => {
     const { visible, error } = (await col.visibility?.(resource)) || {
       visible: true,
     };
@@ -249,20 +155,20 @@ function Resource({
     if (customStatusColumns?.length) {
       Promise.all(
         customStatusColumns.map(async (col) => {
-          return (await filterColumns(col)) ? col : false;
+          return (await filterColumns(col)) ? col : null;
         }),
       ).then((res) => {
         const customCols = res
           .filter(Boolean)
           ?.filter((col) => !col?.conditionComponent)
-          ?.filter((col) => !col?.fullWidth || col?.fullWidth === false);
-        setFilteredStatusColumns(customCols);
+          ?.filter((col) => !col?.fullWidth);
+        setFilteredStatusColumns(customCols as CustomColumn[]);
 
         const customColsLong = res
           .filter(Boolean)
           ?.filter((col) => !col?.conditionComponent)
           ?.filter((col) => col?.fullWidth && col?.fullWidth === true);
-        setFilteredStatusColumnsLong(customColsLong);
+        setFilteredStatusColumnsLong(customColsLong as CustomColumn[]);
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -274,7 +180,9 @@ function Resource({
         customConditionsComponents.map(async (col) => {
           return (await filterColumns(col)) ? col : false;
         }),
-      ).then((res) => setFilteredConditionsComponents(res.filter(Boolean)));
+      ).then((res) =>
+        setFilteredConditionsComponents(res.filter(Boolean) as CustomColumn[]),
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customConditionsComponents]);
@@ -285,7 +193,9 @@ function Resource({
         customColumns.map(async (col) => {
           return (await filterColumns(col)) ? col : false;
         }),
-      ).then((res) => setFilteredDetailsCardColumns(res.filter(Boolean)));
+      ).then((res) =>
+        setFilteredDetailsCardColumns(res.filter(Boolean) as CustomColumn[]),
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customColumns]);
@@ -305,12 +215,18 @@ function Resource({
         <>
           <ToolbarButton
             disabled={protectedResource}
-            onClick={() => handleResourceDelete({ resourceUrl })}
+            onClick={() =>
+              handleResourceDelete({ resourceUrl } as {
+                resource: any;
+                resourceUrl: string;
+                deleteFn: () => void;
+              })
+            }
             design="Transparent"
             tooltip={
               protectedResource
                 ? t('common.tooltips.protected-resources-info')
-                : null
+                : undefined
             }
             text={t('common.buttons.delete')}
           />
@@ -340,7 +256,7 @@ function Resource({
     lastUpdate = lastOp.time;
   }
 
-  const renderUpdateDate = (lastUpdate) => {
+  const renderUpdateDate = (lastUpdate: string) => {
     if (lastUpdate) {
       return <ReadableElapsedTimeFromNow timestamp={lastUpdate} />;
     }
@@ -375,7 +291,9 @@ function Resource({
         customConditionsComponents?.length ? (
           <>
             {filteredConditionsComponents?.map((component, index) => (
-              <Fragment key={`${component.header.replace(' ', '-')}-${index}`}>
+              <Fragment
+                key={`${component?.header?.replace(' ', '-')}-${index}`}
+              >
                 <div className="title bsl-has-color-status-4 sap-margin-x-small">
                   {component.header}:
                 </div>
@@ -394,6 +312,7 @@ function Resource({
       wrapperClassname="resource-overview__details-wrapper"
       content={
         <>
+          {/*@ts-expect-error Type mismatch between js and ts*/}
           <DynamicPageComponent.Column
             key="Resource Type"
             title={t('common.headers.resource-type')}
@@ -411,6 +330,7 @@ function Resource({
               )}
             </div>
           </DynamicPageComponent.Column>
+          {/*@ts-expect-error Type mismatch between js and ts*/}
           <DynamicPageComponent.Column
             key="Age"
             title={t('common.headers.age')}
@@ -420,6 +340,7 @@ function Resource({
             />
           </DynamicPageComponent.Column>
           {!hideLastUpdate && (
+            /*@ts-expect-error Type mismatch between js and ts*/
             <DynamicPageComponent.Column
               key="Last Update"
               title={t('common.headers.last-update')}
@@ -428,11 +349,13 @@ function Resource({
             </DynamicPageComponent.Column>
           )}
           {filteredDetailsCardColumns.map((col) => (
+            /*@ts-expect-error Type mismatch between js and ts*/
             <DynamicPageComponent.Column key={col.header} title={col.header}>
               {col.value(resource)}
             </DynamicPageComponent.Column>
           ))}
           {!hideLabels && (
+            /*@ts-expect-error Type mismatch between js and ts*/
             <DynamicPageComponent.Column
               key="Labels"
               title={t('common.headers.labels')}
@@ -445,6 +368,7 @@ function Resource({
             </DynamicPageComponent.Column>
           )}
           {!hideAnnotations && (
+            /*@ts-expect-error Type mismatch between js and ts*/
             <DynamicPageComponent.Column
               key="Annotations"
               title={t('common.headers.annotations')}
@@ -466,6 +390,7 @@ function Resource({
 
   return (
     <ResourceDetailContext.Provider value={true}>
+      {/*@ts-expect-error Type mismatch between js and ts*/}
       <DynamicPageComponent
         className={className}
         headerContent={headerContent}
@@ -527,7 +452,7 @@ function Resource({
               component(resource, resourceUrl),
             )}
             {children}
-            {resourceGraphConfig?.[resource.kind] && (
+            {resource.kind && resourceGraphConfig?.[resource.kind] && (
               <Suspense fallback={<Spinner />}>
                 <ResourceGraph
                   resource={resource}
@@ -544,7 +469,7 @@ function Resource({
             </Suspense>
           </>
         }
-        inlineEditForm={(stickyHeaderHeight) => (
+        inlineEditForm={(stickyHeaderHeight: number | string) => (
           <ResourceCreate
             title={
               editActionLabel ||
@@ -555,6 +480,7 @@ function Resource({
             isEdit={true}
             confirmText={t('common.buttons.save')}
             protectedResource={showProtectedResourceWarning}
+            /*@ts-expect-error Type mismatch between js and ts*/
             protectedResourceWarning={
               <ProtectedResourceWarning entry={resource} withText />
             }
