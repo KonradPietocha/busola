@@ -1,11 +1,4 @@
-import {
-  createContext,
-  lazy,
-  Fragment,
-  Suspense,
-  useEffect,
-  useState,
-} from 'react';
+import { lazy, Fragment, Suspense, useEffect, useState } from 'react';
 import pluralize from 'pluralize';
 import { useTranslation } from 'react-i18next';
 import { Title, ToolbarButton } from '@ui5/webcomponents-react';
@@ -36,7 +29,7 @@ import {
 } from './ResourceCustomStatusColumns';
 import { ProtectedResourceWarning } from '../ProtectedResourcesButton';
 import { DeleteResourceModal } from '../DeleteResourceModal/DeleteResourceModal';
-import { ResourceDetailsProps } from './ResourceDetails';
+import { ResourceDetailContext, ResourceDetailsProps } from './ResourceDetails';
 import { K8sResource } from 'types';
 import { Resource } from 'components/Extensibility/contexts/DataSources';
 
@@ -48,8 +41,6 @@ const ResourceGraph = lazy(() => import('../ResourceGraph/ResourceGraph'));
 const Injections = lazy(
   () => import('../../../components/Extensibility/ExtensibilityInjections'),
 );
-
-export const ResourceDetailContext = createContext(false);
 
 type ResourceProps = Omit<ResourceDetailsProps, 'disableEdit'> & {
   resource: K8sResource & Resource;

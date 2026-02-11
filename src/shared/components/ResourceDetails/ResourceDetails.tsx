@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { createContext, useEffect, useState } from 'react';
 import { ResourceNotFound } from 'shared/components/ResourceNotFound/ResourceNotFound';
 import { useGet } from 'shared/hooks/BackendAPI/useGet';
 import { getErrorMessage, prettifyNameSingular } from 'shared/utils/helpers';
@@ -9,6 +9,8 @@ import { ResourceGraphConfig } from '../ResourceGraph/types';
 import { ResourceComponent } from './ResourceComponent';
 import { HttpError } from 'shared/hooks/BackendAPI/config';
 import { K8sResource } from 'types';
+
+export const ResourceDetailContext = createContext(false);
 
 export type ResourceDetailsProps = {
   customColumns?: CustomColumnsType;
