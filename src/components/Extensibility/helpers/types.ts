@@ -6,7 +6,9 @@ type SchemaOnChangeParam = {
   type: string;
   schema: StoreSchemaType;
   required?: boolean;
-  data: { value: any };
+  index?: number;
+  itemValue?: any;
+  data?: { value: any };
 };
 
 export type SchemaOnChangeParams = SchemaOnChangeParam | SchemaOnChangeParam[];

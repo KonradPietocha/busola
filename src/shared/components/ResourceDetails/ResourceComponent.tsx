@@ -1,10 +1,9 @@
-import { lazy, Fragment, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import pluralize from 'pluralize';
 import { useTranslation } from 'react-i18next';
-import { Title, ToolbarButton } from '@ui5/webcomponents-react';
+import { Title } from '@ui5/webcomponents-react';
 import { ErrorBoundary } from 'shared/components/ErrorBoundary/ErrorBoundary';
 import { prettifyNameSingular } from 'shared/utils/helpers';
-import { Labels } from 'shared/components/Labels/Labels';
 import { DynamicPageComponent } from 'shared/components/DynamicPageComponent/DynamicPageComponent';
 import { Spinner } from 'shared/components/Spinner/Spinner';
 import { useWindowTitle } from 'shared/hooks/useWindowTitle';
@@ -12,26 +11,20 @@ import { useProtectedResources } from 'shared/hooks/useProtectedResources';
 import { useDeleteResource } from 'shared/hooks/useDeleteResource';
 import { ResourceCreate } from 'shared/components/ResourceCreate/ResourceCreate';
 import { useVersionWarning } from 'hooks/useVersionWarning';
-import YamlUploadDialog from 'resources/Namespaces/YamlUpload/YamlUploadDialog';
-import { createPortal } from 'react-dom';
-import ResourceDetailsCard from './ResourceDetailsCard';
 import { ResourceHealthCard } from '../ResourceHealthCard/ResourceHealthCard';
-import { ResourceStatusCard } from '../ResourceStatusCard/ResourceStatusCard';
 import { EMPTY_TEXT_PLACEHOLDER } from '../../constants';
 import { ReadableElapsedTimeFromNow } from '../ReadableElapsedTimeFromNow/ReadableElapsedTimeFromNow';
-import { HintButton } from '../HintButton/HintButton';
 import { useAtomValue } from 'jotai';
 import { columnLayoutAtom } from 'state/columnLayoutAtom';
 import BannerCarousel from 'shared/components/FeatureCard/BannerCarousel';
-import {
-  CustomColumn,
-  ResourceCustomStatusColumns,
-} from './ResourceCustomStatusColumns';
+import { CustomColumn } from './ResourceCustomStatusColumns';
 import { ProtectedResourceWarning } from '../ProtectedResourcesButton';
-import { DeleteResourceModal } from '../DeleteResourceModal/DeleteResourceModal';
 import { ResourceDetailContext, ResourceDetailsProps } from './ResourceDetails';
 import { K8sResource } from 'types';
 import { Resource } from 'components/Extensibility/contexts/DataSources';
+import { ResourceActions } from './ResourceActions';
+import { ResourceDetailsCardContent } from './ResourceDetailsCardContent';
+import { ResourceStatusCardContent } from './ResourceStatusCardContent';
 
 // This component is loaded after the page mounts.
 // Don't try to load it on scroll. It was tested.
@@ -191,54 +184,6 @@ export function ResourceComponent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customColumns]);
 
-  const actions = readOnly ? null : (
-    <>
-      {headerActions}
-      <Suspense fallback={<Spinner />}>
-        <Injections
-          destination={resourceType}
-          slot="details-header"
-          root={resource}
-        />
-      </Suspense>
-      {resourceHeaderActions.map((resourceAction) => resourceAction(resource))}
-      {!disableDelete && (
-        <>
-          <ToolbarButton
-            disabled={protectedResource}
-            onClick={() =>
-              handleResourceDelete({ resourceUrl } as {
-                resource: any;
-                resourceUrl: string;
-                deleteFn: () => void;
-              })
-            }
-            design="Transparent"
-            tooltip={
-              protectedResource
-                ? t('common.tooltips.protected-resources-info')
-                : undefined
-            }
-            text={t('common.buttons.delete')}
-          />
-          {createPortal(
-            <DeleteResourceModal
-              resource={resource}
-              resourceUrl={resourceUrl}
-              resourceType={resource.kind}
-              performDelete={performDelete}
-              showDeleteDialog={showDeleteDialog}
-              performCancel={performCancel}
-            />,
-            document.body,
-          )}
-          \
-        </>
-      )}
-      {createPortal(<YamlUploadDialog />, document.body)}
-    </>
-  );
-
   // https://stackoverflow.com/questions/70330862/how-to-get-the-latest-change-time-of-a-resource-instance-in-k8s
   let lastUpdate;
   const managedFields = resource.metadata?.managedFields;
@@ -253,127 +198,6 @@ export function ResourceComponent({
     }
     return EMPTY_TEXT_PLACEHOLDER;
   };
-
-  const resourceStatusCard = customStatus ? (
-    customStatus
-  ) : customStatusColumns?.length ||
-    customConditionsComponents?.length ||
-    statusConditions?.length ? (
-    <ResourceStatusCard
-      statusBadge={statusBadge ? statusBadge(resource) : null}
-      customColumns={
-        customStatusColumns?.length ? (
-          <ResourceCustomStatusColumns
-            filteredStatusColumns={filteredStatusColumns}
-            resource={resource}
-          />
-        ) : null
-      }
-      customColumnsLong={
-        customStatusColumns?.length ? (
-          <ResourceCustomStatusColumns
-            filteredStatusColumns={filteredStatusColumnsLong}
-            resource={resource}
-          />
-        ) : null
-      }
-      conditions={statusConditions ? statusConditions(resource) : null}
-      customConditionsComponent={
-        customConditionsComponents?.length ? (
-          <>
-            {filteredConditionsComponents?.map((component, index) => (
-              <Fragment
-                key={`${component?.header?.replace(' ', '-')}-${index}`}
-              >
-                <div className="title bsl-has-color-status-4 sap-margin-x-small">
-                  {component.header}:
-                </div>
-                {component.value(resource)}
-              </Fragment>
-            ))}
-          </>
-        ) : null
-      }
-    />
-  ) : null;
-
-  const resourceDetailsCard = (
-    <ResourceDetailsCard
-      titleText={t('cluster-overview.headers.metadata')}
-      wrapperClassname="resource-overview__details-wrapper"
-      content={
-        <>
-          {/*@ts-expect-error Type mismatch between js and ts*/}
-          <DynamicPageComponent.Column
-            key="Resource Type"
-            title={t('common.headers.resource-type')}
-          >
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              {resource.kind}
-              {description && (
-                <HintButton
-                  className="sap-margin-begin-tiny"
-                  setShowTitleDescription={setShowTitleDescription}
-                  showTitleDescription={showTitleDescription}
-                  description={description}
-                  ariaTitle={resource?.kind}
-                />
-              )}
-            </div>
-          </DynamicPageComponent.Column>
-          {/*@ts-expect-error Type mismatch between js and ts*/}
-          <DynamicPageComponent.Column
-            key="Age"
-            title={t('common.headers.age')}
-          >
-            <ReadableElapsedTimeFromNow
-              timestamp={resource.metadata.creationTimestamp}
-            />
-          </DynamicPageComponent.Column>
-          {!hideLastUpdate && (
-            /*@ts-expect-error Type mismatch between js and ts*/
-            <DynamicPageComponent.Column
-              key="Last Update"
-              title={t('common.headers.last-update')}
-            >
-              {renderUpdateDate(lastUpdate)}
-            </DynamicPageComponent.Column>
-          )}
-          {filteredDetailsCardColumns.map((col) => (
-            /*@ts-expect-error Type mismatch between js and ts*/
-            <DynamicPageComponent.Column key={col.header} title={col.header}>
-              {col.value(resource)}
-            </DynamicPageComponent.Column>
-          ))}
-          {!hideLabels && (
-            /*@ts-expect-error Type mismatch between js and ts*/
-            <DynamicPageComponent.Column
-              key="Labels"
-              title={t('common.headers.labels')}
-              columnSpan="1/1"
-            >
-              <Labels
-                labels={resource.metadata.labels || {}}
-                shortenLongLabels
-              />
-            </DynamicPageComponent.Column>
-          )}
-          {!hideAnnotations && (
-            /*@ts-expect-error Type mismatch between js and ts*/
-            <DynamicPageComponent.Column
-              key="Annotations"
-              title={t('common.headers.annotations')}
-            >
-              <Labels
-                labels={resource.metadata.annotations || {}}
-                shortenLongLabels
-              />
-            </DynamicPageComponent.Column>
-          )}
-        </>
-      }
-    />
-  );
 
   const customOverviewCard = (customHealthCards || []).map(
     (healthCard, index) => healthCard(resource, index),
@@ -390,7 +214,22 @@ export function ResourceComponent({
         layoutCloseUrl={layoutCloseCreateUrl}
         title={customTitle ?? resource.metadata.name}
         description={headerDescription}
-        actions={actions}
+        actions={
+          <ResourceActions
+            headerActions={headerActions}
+            readOnly={readOnly}
+            resource={resource}
+            resourceHeaderActions={resourceHeaderActions}
+            resourceType={resourceType}
+            resourceUrl={resourceUrl}
+            disableDelete={disableDelete}
+            handleResourceDelete={handleResourceDelete}
+            protectedResource={protectedResource}
+            performDelete={performDelete}
+            showDeleteDialog={showDeleteDialog}
+            performCancel={performCancel}
+          />
+        }
         protectedResource={showProtectedResourceWarning}
         protectedResourceWarning={
           <ProtectedResourceWarning entry={resource} withText />
@@ -423,8 +262,29 @@ export function ResourceComponent({
                       : 'column-view'
                   }`}
                 >
-                  {resourceDetailsCard}
-                  {resourceStatusCard && resourceStatusCard}
+                  <ResourceDetailsCardContent
+                    resource={resource}
+                    description={description}
+                    setShowTitleDescription={setShowTitleDescription}
+                    showTitleDescription={showTitleDescription}
+                    lastUpdate={lastUpdate}
+                    renderUpdateDate={renderUpdateDate}
+                    filteredDetailsCardColumns={filteredDetailsCardColumns}
+                    hideLastUpdate={hideLastUpdate}
+                    hideLabels={hideLabels}
+                    hideAnnotations={hideAnnotations}
+                  />
+                  <ResourceStatusCardContent
+                    resource={resource}
+                    statusBadge={statusBadge}
+                    customStatus={customStatus}
+                    customStatusColumns={customStatusColumns}
+                    filteredStatusColumns={filteredStatusColumns}
+                    filteredStatusColumnsLong={filteredStatusColumnsLong}
+                    statusConditions={statusConditions}
+                    customConditionsComponents={customConditionsComponents}
+                    filteredConditionsComponents={filteredConditionsComponents}
+                  />
                 </div>
                 <ResourceHealthCard
                   customHealthCards={customOverviewCard}

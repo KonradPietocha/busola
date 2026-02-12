@@ -23,7 +23,7 @@ type ResourceRefRenderProps = {
   schema: StoreSchemaType;
   storeKeys: StoreKeys;
   resource: any;
-  widgets: any;
+  widgets: { WidgetRenderer: React.ComponentType<any> };
   required: boolean;
   originalResource: Resource;
   nestingLevel: number;

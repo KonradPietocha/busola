@@ -14,7 +14,6 @@ type MultiTypeProps = {
   schema: StoreSchemaType;
   storeKeys: StoreKeys;
   resource: Record<string, any>;
-  parentSchema?: StoreSchemaType;
 } & Record<string, any>;
 
 type TypeOption = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'null';
@@ -24,7 +23,6 @@ export function MultiType({
   schema,
   storeKeys,
   resource,
-  parentSchema = undefined,
   ...props
 }: MultiTypeProps) {
   const value = storeKeys.reduce((val, key) => val?.[key], resource);
@@ -71,6 +69,8 @@ export function MultiType({
           <SegmentedButton>
             {types.map((type: TypeOption) => (
               <SegmentedButtonItem
+                /*@ts-expect-error Type mismatch or probably no longer used*/
+                compact
                 key={type}
                 selected={type === selectedType}
                 onClick={() => {
@@ -94,7 +94,8 @@ export function MultiType({
       />
       <PluginStack
         {...props}
-        parentSchema={parentSchema}
+        /*@ts-expect-error Type mismatch or probably no longer used*/
+        onChange={onChange}
         schema={newSchema}
         storeKeys={storeKeys}
       />
