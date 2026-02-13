@@ -1,4 +1,4 @@
-import { Children, cloneElement } from 'react';
+import { Children, cloneElement, DetailedReactHTMLElement } from 'react';
 import { WidgetRenderer } from '@ui-schema/ui-schema/WidgetRenderer';
 
 import {
@@ -37,6 +37,7 @@ import { AlertRenderer } from './AlertRenderer';
 import { MultiCheckbox } from './MultiCheckbox';
 import { MultiType } from './MultiType';
 import { Modules } from './Modules/Modules';
+import { StoreSchemaType } from '@ui-schema/ui-schema';
 
 const pluginStack = [
   // TODO
@@ -57,17 +58,32 @@ const pluginStack = [
 ];
 
 export const widgets = {
-  RootRenderer: ({ children }) => <div>{children}</div>,
-  GroupRenderer: ({ children }) => (
+  RootRenderer: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  GroupRenderer: ({ children }: { children: React.ReactNode }) => (
     <>
       {Children.map(children, (child, i) =>
-        cloneElement(child, { key: `group-child-${i}` }),
+        cloneElement(child as DetailedReactHTMLElement<any, HTMLElement>, {
+          key: `group-child-${i}`,
+        }),
       )}
     </>
   ),
-  WidgetRenderer: ({ schema, required, ...props }) => {
+  WidgetRenderer: ({
+    schema,
+    required,
+    ...props
+  }: {
+    schema: StoreSchemaType;
+    required: boolean;
+  } & Record<string, any>) => {
     required = schema.get('required') ?? required;
-    return WidgetRenderer({ schema, required, ...props });
+    return (WidgetRenderer as React.FunctionComponent<any>)({
+      schema,
+      required,
+      ...props,
+    });
   },
   pluginStack,
   pluginSimpleStack: validators.filter(Boolean),
